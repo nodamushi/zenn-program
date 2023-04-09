@@ -50,16 +50,16 @@ players = []
 for x in range(size):
     hand = get_computer_hand()
     players.append(hand)
-    print("コンピューター", x, "の手:", hand.name)
+    print(f"コンピューター{x}の手: {hand.name}")
 
 results = determine_winner(players)
 for x in range(size):
     hand = players[x]
     result = results[x]
     if result == Result.WIN:
-        print("コンピューター", x, ": ", hand.name, " 勝ち")
+        print(f"コンピューター{x}の手: 勝ち {hand.name}")
     elif result == Result.LOSE:
-        print("コンピューター", x, ": ", hand.name, " 負け")
+        print(f"コンピューター{x}の手: 負け {hand.name}")
     else:
-        print("コンピューター", x, ": ", hand.name, " 引き分け")
+        print(f"コンピューター{x}の手: 引き分け {hand.name}")
 
