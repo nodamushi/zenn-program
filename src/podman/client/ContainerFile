@@ -1,0 +1,12 @@
+FROM ubuntu:22.04
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        iputils-ping net-tools openssh-client \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* \
+ && setcap cap_net_raw+p /usr/bin/ping \
+ && mkdir /root/.ssh \
+ && chmod 700 /root/.ssh
+
+COPY --chmod=600 id_rsa /root/.ssh/id_rsa
