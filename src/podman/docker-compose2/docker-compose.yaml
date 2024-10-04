@@ -1,0 +1,43 @@
+services:
+  node1:
+    stop_grace_period: 0s
+    build:
+      context: ../client
+      dockerfile: ContainerFile
+    networks:
+      testnet:
+        ipv4_address: 192.168.11.100
+    command: sh -c "sleep 1; ping -c 1 node3;  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@node2 ifconfig; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@node3 ifconfig;"
+
+  node2:
+    stop_grace_period: 0s
+    build:
+      context: ../server
+      dockerfile: ContainerFile
+    ports:
+      - "2222:22"
+    networks:
+      testnet:
+        ipv4_address: 192.168.11.101
+      hostnet:
+
+  node3:
+    stop_grace_period: 0s
+    build:
+      context: ../server
+      dockerfile: ContainerFile
+    ports:
+      - "2223:22"
+    networks:
+      testnet:
+        ipv4_address: 192.168.11.102
+      hostnet:
+
+networks:
+  testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.11.0/24
+  hostnet:
+    driver: bridge
