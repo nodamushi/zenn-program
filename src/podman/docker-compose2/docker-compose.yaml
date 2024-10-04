@@ -19,7 +19,6 @@ services:
     networks:
       testnet:
         ipv4_address: 192.168.11.101
-      hostnet:
 
   node3:
     stop_grace_period: 0s
@@ -31,7 +30,6 @@ services:
     networks:
       testnet:
         ipv4_address: 192.168.11.102
-      hostnet:
 
 networks:
   testnet:
@@ -39,5 +37,3 @@ networks:
     ipam:
       config:
         - subnet: 192.168.11.0/24
-  hostnet:
-    driver: bridge
