@@ -1,3 +1,45 @@
+//! # Google Drive API Rustクライアント
+//!
+//! このクレートはGoogle Drive APIを使用するためのシンプルなRustラッパーを提供します。
+//! 認証、ファイルの一覧取得、メタデータの取得、ファイルのダウンロードなどの
+//! 基本的な機能をサポートしています。
+//!
+//! ## 機能
+//!
+//! - OAuth2認証プロセスをサポート
+//! - ファイルやフォルダの一覧取得
+//! - ファイルのメタデータを取得
+//! - ファイルのダウンロード（バイナリまたはファイルとして保存）
+//!
+//! ## 使用例
+//!
+//! ```skip
+//! use google_drive::{GDrive, GDriveId};
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     // 認証を行う
+//!     let drive = GDrive::oauth(
+//!         "client_secret.json",
+//!         "./token.json",
+//!         None,
+//!     ).await?;
+//!
+//!     // フォルダIDを指定してファイル一覧を取得
+//!     let folder_id: GDriveId = "your_folder_id".into();
+//!     let files = drive.list(&folder_id).await?;
+//!
+//!     // ファイルをダウンロード
+//!     for meta in files {
+//!         if !meta.is_directory() && meta.can_download {
+//!             drive.download_and_save(&meta.id, format!("./downloads/{}", meta.name)).await?;
+//!         }
+//!     }
+//!
+//!     Ok(())
+//! }
+//! ```
+
 use std::{future::poll_fn, path::Path, pin::Pin, sync::Arc};
 
 use google_drive3::{
@@ -18,8 +60,23 @@ use google_drive3::{
 
 pub use google_drive3::yup_oauth2::authenticator_delegate::InstalledFlowDelegate;
 
+/// Google DriveのIDを表す構造体
+///
+/// この構造体はGoogle Driveのファイルやフォルダを識別するためのIDをラップします。
+/// StringやstrからIDを作成することができ、表示や比較のための実装が提供されています。
+///
+/// # 例
+///
+/// ```
+/// use google_drive::GDriveId;
+///
+/// let id1: GDriveId = "1wS6tVoVmkdMZ96DgcKew-pSYBpJa9pXA".into();
+/// let id2 = GDriveId::from("1wS6tVoVmkdMZ96DgcKew-pSYBpJa9pXA");
+///
+/// assert_eq!(id1, id2);
+/// println!("ID: {}", id1); // ID: 1wS6tVoVmkdMZ96DgcKew-pSYBpJa9pXA
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-/// Google Drive ID
 pub struct GDriveId(String);
 
 impl From<String> for GDriveId {
@@ -45,49 +102,85 @@ impl AsRef<str> for GDriveId {
 
 // --------------------------------------------------------
 
+/// Google Driveの操作時に発生する可能性のあるエラー
+///
+/// このエラー型はGoogle Drive APIの使用中に発生する様々なエラーを表します。
+/// API関連のエラー、IO操作のエラー、ダウンロードエラー、およびその他の問題を含みます。
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// Google Drive API自体からのエラー
     #[error("GoogleDrive API Error: {0}")]
     GoogleDriveAPIError(#[from] google_drive3::Error),
+
+    /// ファイルシステム操作に関連するエラー
     #[error("IO Error: {0}")]
     IOError(#[from] std::io::Error),
+
+    /// ファイルダウンロード中のネットワークエラー
     #[error("Download Error: {0}")]
     DownloadError(#[from] hyper::Error),
+
+    /// 無効なHTTPレスポンスステータスを受け取った
     #[error("Invalid Response: {0}")]
     InvalidResponse(u16),
+
+    /// 必要なメタデータフィールドがnullだった
     #[error("Meta data '{0}' is null.")]
     MetaIsNull(&'static str),
+
+    /// ディレクトリをファイルとしてダウンロードしようとした
     #[error("Download Error: {0} is a directory")]
     DirectoryDownloadError(GDriveId),
+
+    /// 内部エラー
     #[error("Internal Error")]
     InternalError,
 }
 
 // --------------------------------------------------------
 
-/// メタデータ
+/// Google Driveファイルのメタデータ
+///
+/// この構造体はGoogle Driveのファイルやフォルダに関するメタデータを表します。
+/// IDや名前、MIMEタイプ、変更日時などの基本的な情報が含まれます。
 #[derive(Debug, Clone)]
 pub struct GMeta {
+    /// ファイルやフォルダのID
     pub id: GDriveId,
+
+    /// ファイルやフォルダの名前
     pub name: String,
+
+    /// MIMEタイプ
     pub mime_type: String,
+
+    /// 最終変更日時（UTC）
     pub modified_time: chrono::DateTime<chrono::offset::Utc>,
+
+    /// ダウンロード可能かどうか
     pub can_download: bool,
 }
 
 impl GMeta {
+    /// このファイルがGoogle Apps形式（Googleドキュメント、スプレッドシートなど）かどうかを判定
+    ///
+    /// Google Apps形式のファイルは特別な処理が必要で、通常のダウンロードでは取得できません。
+    /// エクスポート機能を使用する必要があります。
     pub fn is_google_app(&self) -> bool {
         self.mime_type.starts_with("application/vnd.google-apps.")
     }
 
+    /// このアイテムがディレクトリ（フォルダ）かどうかを判定
     pub fn is_directory(&self) -> bool {
         self.mime_type == "application/vnd.google-apps.folder"
     }
 
+    /// このファイルがGoogle Appsファイル（ディレクトリ以外）かどうかを判定
     pub fn is_google_app_file(&self) -> bool {
         self.is_google_app() && !self.is_directory()
     }
 
+    /// Google Drive APIのFileオブジェクトからGMetaを作成
     fn new(file: File) -> Result<Self, Error> {
         let Some(id) = file.id else {
             return Err(Error::MetaIsNull("id"));
@@ -121,15 +214,69 @@ impl GMeta {
 const READONLY: &str = "https://www.googleapis.com/auth/drive.readonly";
 const SCOPES: &[&str] = &[READONLY];
 
+/// ファイルのダウンロード処理を定義するトレイト
+///
+/// このトレイトを実装することで、ダウンロードしたファイルのデータの処理方法を
+/// カスタマイズすることができます。例えば、ファイルに保存したり、メモリに保持したり、
+/// ストリーミング処理したりできます。
 pub trait DownloadHandler {
+    /// ダウンロードするファイルのサイズを設定
+    ///
+    /// このメソッドはダウンロードの開始時に呼び出され、ファイルの全体サイズを通知します。
+    /// 必要に応じてバッファのプリアロケーションなどに使用できます。
     fn set_size(&self, size: usize) -> impl Future<Output = Result<(), Error>> + Send;
+
+    /// ダウンロードしたデータのチャンクを書き込む
+    ///
+    /// このメソッドはダウンロードの進行中に複数回呼び出され、
+    /// ダウンロードしたデータの各チャンクが渡されます。
     fn write(&self, b: Bytes) -> impl Future<Output = Result<(), Error>> + Send;
 }
 
 
+/// Google Driveへのアクセスを提供するメインクラス
+///
+/// この構造体は認証、ファイル一覧の取得、ダウンロードなど、
+/// Google Drive APIとの対話に必要な主要な機能を提供します。
 pub struct GDrive(DriveHub<HttpsConnector<HttpConnector>>);
 
 impl GDrive {
+    /// OAuth2認証を使用してGoogle Driveに接続する
+    ///
+    /// # 引数
+    ///
+    /// * `client_secret` - クライアントシークレットのJSONファイルのパス
+    /// * `save_token` - 認証トークンを保存するパス
+    /// * `flow_delegate` - 認証フローのカスタマイズに使用できるデリゲート（オプション）
+    ///
+    /// # 戻り値
+    ///
+    /// 認証済みのGDriveインスタンス、または発生したエラー
+    ///
+    /// # 例
+    ///
+    /// ```skip
+    /// use google_drive::{GDrive, InstalledFlowDelegate};
+    ///
+    /// struct MyDelegate;
+    ///
+    /// impl InstalledFlowDelegate for MyDelegate {
+    ///     // 実装は省略
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let drive = GDrive::oauth(
+    ///         "client_secret.json",
+    ///         "./token.json",
+    ///         Some(Box::new(MyDelegate {})),
+    ///     ).await?;
+    ///
+    ///     // ここでdriveを使用
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn oauth<P1, P2>(
         client_secret: P1,
         save_token: P2,
@@ -160,6 +307,34 @@ impl GDrive {
         Ok(Self(DriveHub::new(client, auth)))
     }
 
+    /// 指定されたフォルダ内のファイルとフォルダの一覧を取得
+    ///
+    /// # 引数
+    ///
+    /// * `id` - 一覧を取得するフォルダのID
+    ///
+    /// # 戻り値
+    ///
+    /// フォルダ内のアイテムのメタデータのリスト、または発生したエラー
+    ///
+    /// # 例
+    ///
+    /// ```skip
+    /// use google_drive::{GDrive, GDriveId};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let drive = GDrive::oauth("client_secret.json", "./token.json", None).await?;
+    ///     let folder_id: GDriveId = "your_folder_id".into();
+    ///
+    ///     let items = drive.list(&folder_id).await?;
+    ///     for item in items {
+    ///         println!("{}: {}", item.name, if item.is_directory() { "フォルダ" } else { "ファイル" });
+    ///     }
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn list(&self, id: &GDriveId) -> Result<Vec<GMeta>, Error> {
         let query = format!("'{}' in parents", id);
         let mut v = Vec::new();
@@ -170,6 +345,7 @@ impl GDrive {
         Ok(v)
     }
 
+    /// 内部的なページング付きリスト取得関数
     async fn list_internal(
         &self,
         query: &str,
@@ -205,6 +381,34 @@ impl GDrive {
         Ok(flist.next_page_token)
     }
 
+    /// ファイルまたはフォルダのメタデータを取得
+    ///
+    /// # 引数
+    ///
+    /// * `id` - メタデータを取得するファイル/フォルダのID
+    ///
+    /// # 戻り値
+    ///
+    /// ファイル/フォルダのメタデータ、または発生したエラー
+    ///
+    /// # 例
+    ///
+    /// ```skip
+    /// use google_drive::{GDrive, GDriveId};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let drive = GDrive::oauth("client_secret.json", "./token.json", None).await?;
+    ///     let file_id: GDriveId = "your_file_id".into();
+    ///
+    ///     let meta = drive.get_meta(&file_id).await?;
+    ///     println!("名前: {}", meta.name);
+    ///     println!("MIMEタイプ: {}", meta.mime_type);
+    ///     println!("変更日時: {}", meta.modified_time);
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn get_meta(&self, id: &GDriveId) -> Result<GMeta, Error> {
         let (rsp, file) = self
             .0
@@ -221,6 +425,62 @@ impl GDrive {
         Ok(GMeta::new(file)?)
     }
 
+    /// カスタムハンドラを使用してファイルをダウンロード
+    ///
+    /// # 引数
+    ///
+    /// * `id` - ダウンロードするファイルのID
+    /// * `handler` - ダウンロードしたデータを処理するハンドラ
+    ///
+    /// # 戻り値
+    ///
+    /// 成功した場合は`Ok(())`、失敗した場合はエラー
+    ///
+    /// # 例
+    ///
+    /// ```skip
+    /// use google_drive::{GDrive, GDriveId, DownloadHandler, Error};
+    /// use hyper::body::Bytes;
+    /// use std::sync::Arc;
+    ///
+    /// struct MyHandler(Arc<tokio::sync::Mutex<Vec<u8>>>);
+    ///
+    /// impl DownloadHandler for MyHandler {
+    ///     fn set_size(&self, size: usize) -> impl std::future::Future<Output = Result<(), Error>> + Send {
+    ///         let data = self.0.clone();
+    ///         async move {
+    ///             let mut data = data.lock().await;
+    ///             data.reserve(size);
+    ///             Ok(())
+    ///         }
+    ///     }
+    ///
+    ///     fn write(&self, b: Bytes) -> impl std::future::Future<Output = Result<(), Error>> + Send {
+    ///         let data = self.0.clone();
+    ///         async move {
+    ///             let mut data = data.lock().await;
+    ///             data.extend_from_slice(&b);
+    ///             Ok(())
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let drive = GDrive::oauth("client_secret.json", "./token.json", None).await?;
+    ///     let file_id: GDriveId = "your_file_id".into();
+    ///
+    ///     let data = Arc::new(tokio::sync::Mutex::new(Vec::new()));
+    ///     let handler = MyHandler(data.clone());
+    ///
+    ///     drive.download(&file_id, handler).await?;
+    ///
+    ///     let content = Arc::try_unwrap(data).unwrap().into_inner();
+    ///     println!("ダウンロードサイズ: {} バイト", content.len());
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn download<H>(&self, id: &GDriveId, handler: H) -> Result<(), Error>
     where
         H: DownloadHandler + Sync + Send + 'static,
@@ -273,6 +533,33 @@ impl GDrive {
         task.await.map_err(|_| Error::InternalError)?
     }
 
+    /// ファイルをダウンロードして指定したパスに保存
+    ///
+    /// # 引数
+    ///
+    /// * `id` - ダウンロードするファイルのID
+    /// * `file` - 保存先のファイルパス
+    ///
+    /// # 戻り値
+    ///
+    /// 成功した場合は`Ok(())`、失敗した場合はエラー
+    ///
+    /// # 例
+    ///
+    /// ```skip
+    /// use google_drive::{GDrive, GDriveId};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let drive = GDrive::oauth("client_secret.json", "./token.json", None).await?;
+    ///     let file_id: GDriveId = "your_file_id".into();
+    ///
+    ///     drive.download_and_save(&file_id, "./downloads/myfile.pdf").await?;
+    ///     println!("ファイルをダウンロードしました！");
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn download_and_save<P: AsRef<Path>>(
         &self,
         id: &GDriveId,
@@ -302,6 +589,32 @@ impl GDrive {
         self.download(id, handler).await
     }
 
+    /// ファイルをダウンロードしてバイト配列として返す
+    ///
+    /// # 引数
+    ///
+    /// * `id` - ダウンロードするファイルのID
+    ///
+    /// # 戻り値
+    ///
+    /// ダウンロードしたファイルのバイト配列、または発生したエラー
+    ///
+    /// # 例
+    ///
+    /// ```skip
+    /// use google_drive::{GDrive, GDriveId};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let drive = GDrive::oauth("client_secret.json", "./token.json", None).await?;
+    ///     let file_id: GDriveId = "your_file_id".into();
+    ///
+    ///     let data = drive.download_as_binary(&file_id).await?;
+    ///     println!("ダウンロードサイズ: {} バイト", data.len());
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn download_as_binary(&self, id: &GDriveId) -> Result<Vec<u8>, Error> {
         let data = Arc::new(tokio::sync::Mutex::new(Vec::new()));
         struct X(Arc<tokio::sync::Mutex<Vec<u8>>>);
@@ -332,6 +645,9 @@ impl GDrive {
 
 //-----------------------------------------------------------
 
+/// OAuth2トークンプロバイダ
+///
+/// なぜか Authenticator が GetToken を実装してないので自力で実装する
 #[derive(Clone)]
 struct OAuthTokenProvider(Authenticator<HttpsConnector<HttpConnector>>);
 
