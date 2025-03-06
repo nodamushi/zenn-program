@@ -1,0 +1,10 @@
+[package]
+name = "google_drive"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+google-drive3.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+chrono.workspace = true

@@ -1,0 +1,24 @@
+[package]
+name = "google_drive_study"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["google_drive"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+google_drive = {path = "./google_drive"}
+google-drive3 = "6.0.0"
+tokio = {version = "1.43.0", features = ["full"]}
+thiserror = "2.0.12"
+chrono = "0.4.40"
+
+[dependencies]
+tokio.workspace = true
+google_drive.workspace = true
+open = "5.3.2"
+anyhow = "1.0.97"
