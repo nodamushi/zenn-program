@@ -337,7 +337,7 @@ impl GDrive {
         let mut v = Vec::new();
         let mut next = self.list_internal(&query, None, &mut v).await?;
         while next.is_some() {
-            next = self.list_internal(&query, None, &mut v).await?;
+            next = self.list_internal(&query, next, &mut v).await?;
         }
         Ok(v)
     }
