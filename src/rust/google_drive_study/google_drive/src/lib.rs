@@ -45,17 +45,13 @@ use std::{future::poll_fn, path::Path, pin::Pin, sync::Arc};
 use google_drive3::{
     DriveHub,
     api::File,
-    common::GetToken,
     hyper::{
         self,
         body::{Body, Bytes},
     },
-    hyper_rustls::{HttpsConnector, HttpsConnectorBuilder},
-    hyper_util::{self, client::legacy::connect::HttpConnector, rt::TokioExecutor},
-    yup_oauth2::{
-        InstalledFlowAuthenticator, InstalledFlowReturnMethod, authenticator::Authenticator,
-        read_application_secret,
-    },
+    hyper_rustls::{self, HttpsConnector},
+    hyper_util::{self, client::legacy::connect::HttpConnector},
+    yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod, read_application_secret},
 };
 
 pub use google_drive3::yup_oauth2::authenticator_delegate::InstalledFlowDelegate;
@@ -233,7 +229,6 @@ pub trait DownloadHandler {
     fn write(&self, b: Bytes) -> impl Future<Output = Result<(), Error>> + Send;
 }
 
-
 /// Google Driveへのアクセスを提供するメインクラス
 ///
 /// この構造体は認証、ファイル一覧の取得、ダウンロードなど、
@@ -295,15 +290,17 @@ impl GDrive {
             None => builder,
         };
         let auth = builder.build().await?;
-        let auth = Box::new(OAuthTokenProvider(auth));
-        let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(
-            HttpsConnectorBuilder::new()
-                .with_native_roots()
-                .unwrap()
-                .https_or_http()
-                .enable_http1()
-                .build(),
-        );
+
+        let client =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+                .build(
+                    hyper_rustls::HttpsConnectorBuilder::new()
+                        .with_native_roots()
+                        .unwrap()
+                        .https_or_http()
+                        .enable_http1()
+                        .build(),
+                );
         Ok(Self(DriveHub::new(client, auth)))
     }
 
@@ -414,7 +411,10 @@ impl GDrive {
             .0
             .files()
             .get(id.as_ref())
-            .param("fields", "id,name,mimeType,modifiedTime,capabilities(canDownload)")
+            .param(
+                "fields",
+                "id,name,mimeType,modifiedTime,capabilities(canDownload)",
+            )
             .supports_all_drives(true)
             .add_scopes(SCOPES)
             .doit()
@@ -640,42 +640,5 @@ impl GDrive {
         let handler = X(data.clone());
         self.download(id, handler).await?;
         Ok(Arc::try_unwrap(data).unwrap().into_inner())
-    }
-}
-
-//-----------------------------------------------------------
-
-/// OAuth2トークンプロバイダ
-///
-/// なぜか Authenticator が GetToken を実装してないので自力で実装する
-#[derive(Clone)]
-struct OAuthTokenProvider(Authenticator<HttpsConnector<HttpConnector>>);
-
-impl GetToken for Box<OAuthTokenProvider> {
-    fn get_token<'a>(
-        &'a self,
-        scopes: &'a [&str],
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = std::result::Result<
-                        Option<String>,
-                        Box<dyn std::error::Error + Send + Sync>,
-                    >,
-                > + Send
-                + 'a,
-        >,
-    > {
-        Box::pin(self.get(scopes))
-    }
-}
-
-impl OAuthTokenProvider {
-    async fn get<'a>(
-        &'a self,
-        scopes: &'a [&str],
-    ) -> std::result::Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-        let x = self.0.token(scopes).await?;
-        Ok(x.token().map(|x| x.to_string()))
     }
 }
