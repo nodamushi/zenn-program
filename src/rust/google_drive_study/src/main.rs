@@ -5,7 +5,6 @@ use google_drive::{GDrive, GDriveId, InstalledFlowDelegate};
 
 /// ログインの為にブラウザを開く
 struct OpenInstalledFlowDelegate;
-
 impl InstalledFlowDelegate for OpenInstalledFlowDelegate {
     fn redirect_uri(&self) -> Option<&str> {
         None
@@ -17,14 +16,12 @@ impl InstalledFlowDelegate for OpenInstalledFlowDelegate {
         _need_code: bool,
     ) -> std::pin::Pin<Box<dyn Future<Output = std::result::Result<String, String>> + Send + 'a>>
     {
-        Box::pin(show_browser(url))
+        println!("URL: {}", url);
+        Box::pin(async move {
+            open::that(url).map_err(|e| format!("{:?}", e))?;
+            Ok("".to_string())
+        })
     }
-}
-
-async fn show_browser(url: &str) -> std::result::Result<String, String> {
-    println!("URL: {}", url);
-    open::that(url).map_err(|e| format!("{:?}", e))?;
-    Ok("".to_string())
 }
 
 #[tokio::main]
