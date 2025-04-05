@@ -1,0 +1,17 @@
+[package]
+name = "unzip"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.97"
+async_zip = { version = "0.0.17", features = ["full"] }
+num_cpus = "1.16.0"
+reqwest = "0.12.15"
+ripunzip = "2.0.1"
+tempfile = "3.19.1"
+tokio = { version = "1.44.1", features = ["full"] }
+tokio-util = "0.7.14"
+zip = "=2.3"
+zip-extract = "=0.2.0"
+
