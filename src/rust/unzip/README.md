@@ -4,7 +4,32 @@ Rust で Unzip するテスト。
 
 なお、zip クレートの最新版は 2025/4月現在 2.6.1 ですが Ripunzip (2.0.1) は対応してないため 2.3 に固定しています。（2.6.1と速度差は特に見られなかったので問題ないでしょう。）
 
-## 結果
+## 実行
+
+```sh
+cargo run --release
+```
+
+## 結果 Windows
+
+```
+[LOG] Test unzip::ZipExtra
+[LOG]   Result: 3.0556822s
+[LOG] Test unzip::Ripunzip
+[LOG]   Result: 2.0800853s
+[LOG] Test unzip::AsyncZip
+[LOG]   Result: 3.5743267s
+[LOG] Test unzip::AsyncZipParallel
+[LOG]  cores = 16
+[LOG]   Result: 1.5031726s
+```
+
+- CPU: AMD Ryzen 7 5800X 8-Core Processor
+- Windows 11 Pro
+- SSD: Nextorage SSD NEM-PA2TB
+
+
+## 結果 WSL
 
 ```
 [LOG] Test unzip::ZipExtra
