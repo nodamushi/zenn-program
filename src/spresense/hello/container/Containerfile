@@ -1,0 +1,25 @@
+FROM docker.io/ubuntu:20.04
+
+ARG VERSION
+ARG FIRMWARE
+
+ENV PATH "$PATH:/root/spresenseenv/usr/bin"
+
+RUN echo '#!/bin/sh' > /usr/local/bin/sudo \
+ && echo 'exec "$@"' >> /usr/local/bin/sudo \
+ && chmod +x /usr/local/bin/sudo \
+ && apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    wget clang-format vim-common bzip2 make cmake \
+    git jq usbutils clangd screen \
+ && wget -O - https://raw.githubusercontent.com/sonydevworld/spresense/master/install-tools.sh | bash \
+ && rm -fv /*.tar.bz2 \
+ && rm -fv /*.tar.gz \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=bind,source=$FIRMWARE,target=/firmware.zip \
+    git clone --recursive https://github.com/sonydevworld/spresense.git --depth 1 -b "v$VERSION" \
+ && /spresense/sdk/tools/flash.sh -e /firmware.zip
+
+RUN echo 'if [ -f /bashrc/.bashrc ]; then source /bashrc/.bashrc; fi' >> /root/.bashrc

@@ -1,0 +1,25 @@
+
+config WORK_MY_HELLO
+	tristate "my_hello app"
+	default y
+	---help---
+		Enable the my_hello app
+
+if WORK_MY_HELLO
+
+config WORK_MY_HELLO_PROGNAME
+	string "Program name"
+	default "my_hello"
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config WORK_MY_HELLO_PRIORITY
+	int "my_hello task priority"
+	default 100
+
+config WORK_MY_HELLO_STACKSIZE
+	int "my_hello stack size"
+	default 2048
+
+endif

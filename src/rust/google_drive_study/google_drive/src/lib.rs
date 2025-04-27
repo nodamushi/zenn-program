@@ -40,7 +40,12 @@
 //! }
 //! ```
 
-use std::{future::poll_fn, path::Path, pin::Pin, sync::Arc};
+use std::{
+    future::poll_fn,
+    path::Path,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 use google_drive3::{
     DriveHub,
@@ -55,6 +60,7 @@ use google_drive3::{
 };
 
 pub use google_drive3::yup_oauth2::authenticator_delegate::InstalledFlowDelegate;
+use tokio::stream;
 
 /// Google DriveのIDを表す構造体
 ///
@@ -640,5 +646,135 @@ impl GDrive {
         let handler = X(data.clone());
         self.download(id, handler).await?;
         Ok(Arc::try_unwrap(data).unwrap().into_inner())
+    }
+}
+
+//-------------------------------------------------------------------------------------
+
+/// 認証の開始と終了の通知を受ける
+pub trait AuthListener {
+    fn on_auth_start(&self);
+    fn on_auth_complete(&self, error_message: Option<String>);
+}
+
+pub struct CustomServerFlowDelegate<L: AuthListener> {
+    port: u16,
+    server: Arc<Mutex<MyServer>>,
+    listener: Arc<L>,
+}
+
+struct MyServer {}
+
+impl MyServer {
+    pub async fn new<L: AuthListener>(
+        port: Option<u16>,
+        listener: Arc<L>,
+    ) -> std::io::Result<Self> {
+        use tokio::net::TcpListener;
+        use tokio::sync::oneshot;
+        let addr = ("localhost", port.unwrap_or(0));
+        let tcp_listener = TcpListener::bind(addr).await?;
+
+        let port = tcp_listener.local_addr()?.port();
+        let (shutdown_tx, shutdown) = oneshot::channel();
+
+        let handle = tokio::spawn(async move {
+            loop {
+                let Some(x) = tokio::select!(
+                    _ = shutdown => None,
+                    x = tcp_listener.accept() => Some(x),
+                ) else {
+                    break;
+                };
+                match x {
+                    Ok((stream, _)) => {}
+                    Err(_) => {}
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    async fn handle_request(stream: tokio::net::TcpStream) -> Result<String, String> {
+        use tokio::io::BufStream;
+        use tokio::io::AsyncReadExt;
+
+        let mut buf = [0; 2048];
+        let mut stream = BufStream::new(stream);
+        let x = stream.read_buf(&mut buf);
+
+        // リクエストヘッダー読み込み
+        let Ok(n) = stream.read(&mut buf).await {
+            return Err("Fail to read response".into());
+        };
+        let request = String::from_utf8_lossy(&buf[..n]);
+
+        // URLからクエリパラメータ抽出
+        let request_line = request.lines().next().ok_or("無効なリクエスト")?;
+        let path_and_query = request_line
+            .split_whitespace()
+            .nth(1)
+            .ok_or("パスが見つかりません")?;
+
+        // クエリパラメータ解析
+        let query = if let Some(idx) = path_and_query.find('?') {
+            &path_and_query[idx + 1..]
+        } else {
+            ""
+        };
+
+        // URLデコード
+        let decoded_query = urlencoding::decode(query).unwrap_or_default().to_string();
+
+        // 認証コードまたはエラー抽出
+        let mut code = None;
+        let mut error = None;
+
+        for param in decoded_query.split('&') {
+            if let Some((key, value)) = param.split_once('=') {
+                if key == "code" {
+                    code = Some(value.to_string());
+                } else if key == "error" {
+                    error = Some(value.to_string());
+                }
+            }
+        }
+
+        // 結果をチャネルを通じて通知
+        let mut result_tx = server.result_tx.lock().await;
+        if let Some(tx) = result_tx.take() {
+            match (code, error) {
+                (Some(code), _) => {
+                    let _ = tx.send(Ok(code));
+                }
+                (_, Some(error)) => {
+                    let _ = tx.send(Err(error));
+                }
+                _ => {
+                    let _ = tx.send(Err("認証コードもエラーも見つかりませんでした".to_string()));
+                }
+            }
+        }
+
+        // 確認ページを返信
+        let response = format!(
+            "HTTP/1.1 200 OK\r\n\
+             Content-Type: text/html; charset=utf-8\r\n\
+             Connection: close\r\n\
+             \r\n\
+             <html>\
+             <head><title>認証完了</title></head>\
+             <body>\
+             <h1>認証が完了しました</h1>\
+             <p>このページを閉じて、アプリケーションに戻ってください。</p>\
+             </body>\
+             </html>"
+        );
+
+        stream.write_all(response.as_bytes()).await?;
+        stream.flush().await?;
+
+        Ok(())
     }
 }
