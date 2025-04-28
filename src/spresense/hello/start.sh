@@ -78,6 +78,11 @@ else
   usb_options=""
 fi
 
+bash=
+if [ -d "$dir/bash" ];then
+  bash="--mount=type=bind,src=$dir/bash,dst=/bash,ro=true"
+fi
+
 # Container execution
 if [ "$daemon_mode" = true ]; then
   container_name="dev-spresense"
@@ -85,7 +90,7 @@ if [ "$daemon_mode" = true ]; then
 
   podman run -d \
    -name=dev-spresense \
-   "--mount=type=bind,src=$dir/bash,dst=/bash,ro=true" \
+    $bash \
    "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
    $usb_options \
    -w $srcmnt \
@@ -94,7 +99,7 @@ if [ "$daemon_mode" = true ]; then
 elif [ $build_only = true ]; then
 
   podman run --rm \
-   "--mount=type=bind,src=$dir/bash,dst=/bash,ro=true" \
+   $bash \
    "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
    $usb_options \
    -w $srcmnt \
@@ -103,7 +108,7 @@ elif [ $build_only = true ]; then
 
 else
   podman  run --rm -it \
-   "--mount=type=bind,src=$dir/bash,dst=/bash,ro=true" \
+   $bash \
    "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
    $usb_options \
    -w $srcmnt \

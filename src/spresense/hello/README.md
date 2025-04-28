@@ -16,10 +16,6 @@ Podman を使用します。
 
 使用する Spresense SDK のバージョンを変更したい場合は [spresense_info](./spresense_info) を編集してください。
 
-### bash
-
-[bash](./bash/) には `~/.bashrc`、 `~/.bash_profile` から source されるファイルを格納しています。このディレクトリは `/bash` としてマウントされます。
-
 ### コンテナ起動方法
 
 [start.sh](./start.sh) を実行すると Podman のコンテナが立ち上がります。
