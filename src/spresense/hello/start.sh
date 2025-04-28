@@ -73,6 +73,7 @@ if [ "$build_only" = false ]; then
   # USB device related options
   usb_options="--device=${devusb} -e TARGET_USB=$devusb "
 else
+  daemon_mode=false
   echo "[INFO] Build-only mode (no USB device required)"
   usb_options=""
 fi
@@ -84,15 +85,25 @@ if [ "$daemon_mode" = true ]; then
 
   podman run -d \
    -name=dev-spresense \
-   "--mount=type=bind,src=$dir/bashrc,dst=/bashrc,ro=true" \
+   "--mount=type=bind,src=$dir/bash,dst=/bash,ro=true" \
    "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
    $usb_options \
    -w $srcmnt \
    $img \
    tail -f /dev/null
+elif [ $build_only = true ]; then
+
+  podman run --rm \
+   "--mount=type=bind,src=$dir/bash,dst=/bash,ro=true" \
+   "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
+   $usb_options \
+   -w $srcmnt \
+   $img \
+   bash --login -c build
+
 else
   podman  run --rm -it \
-   "--mount=type=bind,src=$dir/bashrc,dst=/bashrc,ro=true" \
+   "--mount=type=bind,src=$dir/bash,dst=/bash,ro=true" \
    "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
    $usb_options \
    -w $srcmnt \

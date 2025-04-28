@@ -22,4 +22,5 @@ RUN --mount=type=bind,source=$FIRMWARE,target=/firmware.zip \
     git clone --recursive https://github.com/sonydevworld/spresense.git --depth 1 -b "v$VERSION" \
  && /spresense/sdk/tools/flash.sh -e /firmware.zip
 
-RUN echo 'if [ -f /bashrc/.bashrc ]; then source /bashrc/.bashrc; fi' >> /root/.bashrc
+ RUN echo 'if [ -f /bash/.bashrc ]; then source /bash/.bashrc; fi' >> /root/.bashrc
+ RUN echo 'if [ -f /bash/.bash_profile ]; then source /bash/.bash_profile; fi' > /root/.bash_profile
