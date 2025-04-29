@@ -1,0 +1,11 @@
+include $(APPDIR)/Make.defs
+
+
+MAINSRC = cam_main.cxx
+CSRCS =
+PROGNAME = cam
+PRIORITY = $(CONFIG_WORK_CAM_PRIORITY)
+STACKSIZE = $(CONFIG_WORK_CAM_STACKSIZE)
+MODULE = $(CONFIG_WORK_CAM)
+
+include $(APPDIR)/Application.mk

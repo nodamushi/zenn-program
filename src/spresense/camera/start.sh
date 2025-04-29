@@ -12,6 +12,7 @@ daemon_mode=false
 devusb=""
 build_only=false
 deploy=false
+deploy_app=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -37,6 +38,11 @@ while [[ $# -gt 0 ]]; do
       build_only=false
       shift
       ;;
+    --deploy-app)
+      deploy_app=true
+      build_only=false
+      shift
+      ;;
     *)
       echo "[ERROR] Unknown option $1"
       echo "usage: $0 [-d] [-u|--usb USB-Device-Name] [-b|--build-only]"
@@ -48,17 +54,12 @@ done
 # USB device detection and verification (only if not build_only)
 if [ "$build_only" = false ]; then
   if [ -z "$devusb" ]; then
-    usb=$(dmesg | grep "cp21.*attached" | grep -o "ttyUSB[0-9]*")
+    usb=$(dmesg | grep "cp21.*attached" | grep -o "ttyUSB[0-9]*" | tail -n 1)
     if [ -z "$usb" ]; then
       echo "[ERROR] USB not found!"
       exit 1
     fi
     devusb="/dev/$usb"
-  fi
-
-  if [ ! -c "$devusb" ]; then
-    echo "[ERROR] $devusb not found or not a character device"
-    exit 1
   fi
 
   # read/write check of /dev/ttyUSBx
@@ -105,6 +106,19 @@ if [ "$daemon_mode" = true ]; then
    -w $srcmnt \
    $img \
    tail -f /dev/null
+elif [ $deploy_app = true ]; then
+
+  container_name="dev-spresense"
+  echo "[INFO] run '$container_name' daemon container"
+
+  podman run --rm \
+    $bash \
+   "--mount=type=bind,src=$dir/src,dst=$srcmnt" \
+   $usb_options \
+   -w $srcmnt \
+   $img \
+      bash --login -c "build && write-app"
+
 elif [ $deploy = true ]; then
   container_name="dev-spresense"
   echo "[INFO] run '$container_name' daemon container"

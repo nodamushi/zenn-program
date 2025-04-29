@@ -11,7 +11,7 @@ RUN echo '#!/bin/sh' > /usr/local/bin/sudo \
  && apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     wget clang-format vim-common bzip2 make cmake \
-    git jq usbutils clangd screen \
+    git jq usbutils clangd screen clang \
  && wget -O - https://raw.githubusercontent.com/sonydevworld/spresense/master/install-tools.sh | bash \
  && rm -fv /*.tar.bz2 \
  && rm -fv /*.tar.gz \

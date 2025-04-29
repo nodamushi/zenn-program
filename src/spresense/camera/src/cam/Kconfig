@@ -1,0 +1,26 @@
+
+config WORK_CAM
+	tristate "cam app"
+	default y
+	depends on HAVE_CXX
+	---help---
+		Enable the cam app
+
+if WORK_CAM
+
+config WORK_CAM_PROGNAME
+	string "Program name"
+	default "cam"
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config WORK_CAM_PRIORITY
+	int "cam task priority"
+	default 100
+
+config WORK_CAM_STACKSIZE
+	int "cam stack size"
+	default 2048
+
+endif

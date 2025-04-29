@@ -1,0 +1,11 @@
+if(CONFIG_WORK_CAM)
+  nuttx_add_application(
+    NAME
+    cam
+    STACKSIZE
+    ${CONFIG_WORK_CAM_STACKSIZE}
+    MODULE
+    ${CONFIG_WORK_CAM}
+    SRCS
+    cam_main.cxx)
+endif()
