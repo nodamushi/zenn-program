@@ -1,8 +1,13 @@
 # camera
 
-Spresense のカメラを試す。
+Spresense のカメラを試しました。
 
 開発環境のコンテナは [hello](../hello/) で作成したものをそのまま流用します。
+
+## 記事
+
+[Spresense SDK でカメラを撮る](https://zenn.dev/nodamushi/articles/3b9411610f4d77)
+
 
 ### コンテナ起動方法
 
