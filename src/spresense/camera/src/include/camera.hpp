@@ -4,10 +4,10 @@
 
 #include "nuttx/video/video_controls.h"
 #include <cstdlib>
+#include <memory>
 #include <nuttx/config.h>
 #include <nuttx/video/video.h>
 #include <sys/ioctl.h>
-#include <memory>
 #include <utility>
 
 #include "./raii.hpp"
@@ -39,7 +39,22 @@ enum VideoFPS {
 };
 
 /** @brief 利用可能なビデオのサイズ */
-enum VideoSize { QQVGA, QVGA, VGA, HD };
+enum VideoSize {
+  /** 160 x 120 */
+  QQVGA,
+  /** 320 x 240 */
+  QVGA,
+  /** 640 x 480 */
+  VGA,
+  /** 1280 x 720 */
+  HD,
+  /**  ISX012(HDR版ではないカメラ) のみ. 1920x1080 */
+  FullHD,
+  /**  ISX012(HDR版ではないカメラ) のみ. 2M Pixel(1632x1244) */
+  P2M,
+  /**  ISX012(HDR版ではないカメラ) の最大値. 5M Pixel(2592x1944). */
+  P5M
+};
 
 /** @brief 画像の幅と高さ */
 struct Size {
@@ -62,6 +77,18 @@ struct Size {
       width = VIDEO_HSIZE_VGA;
       height = VIDEO_VSIZE_VGA;
       break;
+    case FullHD:
+      width = 1920;
+      height = 1080;
+      break;
+    case P2M:
+      width = 1632;
+      height = 1244;
+      break;
+    case P5M:
+      width = 2592;
+      height = 1944;
+      break;
     default:
       width = VIDEO_HSIZE_HD;
       height = VIDEO_VSIZE_HD;
@@ -69,7 +96,6 @@ struct Size {
     }
   }
 };
-
 
 /** @brief ビデオバッファー */
 struct VideoBuffer {
@@ -174,13 +200,20 @@ private:
  * @brief JPEG カメラオブジェクト
  */
 struct Camera {
-
   /**
    * @param videoSize 画像サイズ
    * @param fps 動画の FPS.
    * @param bufferSize バッファ数
    */
   Camera(VideoSize videoSize, VideoFPS fps, uint8_t bufferSize) noexcept
+      : Camera(Size(videoSize), fps, bufferSize) {}
+
+  /**
+   * @param videoSize 画像サイズ
+   * @param fps 動画の FPS.
+   * @param bufferSize バッファ数
+   */
+  Camera(Size videoSize, VideoFPS fps, uint8_t bufferSize) noexcept
       : fd_(), bufs_(), is_movie_(fps != StillImage), size_(videoSize),
         started_(false) {
 
@@ -195,10 +228,9 @@ struct Camera {
     // Set pixel data format and image resolution
     auto buf_type = get_v4l2_buf_type(is_movie_);
     struct v4l2_format fmt = {};
-    const Size imageSize(videoSize);
     fmt.type = buf_type;
-    fmt.fmt.pix.width = imageSize.width;
-    fmt.fmt.pix.height = imageSize.height;
+    fmt.fmt.pix.width = videoSize.width;
+    fmt.fmt.pix.height = videoSize.height;
     fmt.fmt.pix.field = V4L2_FIELD_ANY;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_JPEG;
     if (::ioctl((int)fd, VIDIOC_S_FMT, (unsigned long)&fmt) < 0) {
@@ -242,7 +274,7 @@ struct Camera {
     }
 
     uint32_t length =
-        (uint32_t)imageSize.width * imageSize.height * sizeof(uint16_t) / 7;
+        (uint32_t)videoSize.width * videoSize.height * sizeof(uint16_t) / 7;
     VideoBuffers bufs((int)fd, is_movie_, bufferSize, length);
     if (!bufs.ok()) {
       return; // TODO error
@@ -355,7 +387,7 @@ private:
   raii::FileDescripter fd_;
   VideoBuffers bufs_;
   bool is_movie_;
-  VideoSize size_;
+  Size size_;
   bool started_;
 
   static constexpr const char *VIDEO_DEV_PATH = "/dev/video0";

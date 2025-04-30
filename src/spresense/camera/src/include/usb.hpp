@@ -2,6 +2,7 @@
 #define CAM_USB_HPP__
 
 #include <cerrno>
+#include <cstring>
 #include <fcntl.h>
 #include <nuttx/usb/cdcacm.h>
 #include <nuttx/usb/usbdev.h>
@@ -17,8 +18,8 @@
 namespace usb {
 
 struct USBSerial {
-  USBSerial() noexcept: wfd_(), rfd_()  {}
-  USBSerial(uint32_t baudrate) noexcept: wfd_(), rfd_() {
+  USBSerial() noexcept : wfd_(), rfd_() {}
+  USBSerial(uint32_t baudrate) noexcept : wfd_(), rfd_() {
 
     struct boardioc_usbdev_ctrl_s ctrl = {};
     FAR void *handle;
@@ -77,7 +78,7 @@ struct USBSerial {
   int read() const noexcept {
     if (!ok())
       return -1;
-    char buf[1];
+    char buf[1] = {0};
     ::read(rfd_, buf, 1);
     return (int)buf[0];
   }
@@ -91,13 +92,29 @@ struct USBSerial {
     return count;
   }
 
-  void flush() const noexcept {
-    ioctl(wfd_, TCIOFLUSH);
+  void flush() const noexcept { ioctl(wfd_, TCIOFLUSH); }
+
+  size_t write(const void *buffer, size_t size) const noexcept {
+    if (!ok())
+      return 0;
+    return ::write(wfd_, buffer, size);
   }
 
-  size_t write(const void *buffer, size_t size) {
-    if (!ok()) return 0;
-    return ::write(wfd_, buffer, size);
+  void writeAll(const void* buffer, size_t size) const noexcept {
+    if (!ok()) return;
+    size_t s = 0;
+    const uint8_t * buf = (const uint8_t *)buffer;
+    while (s < size) {
+      auto x =  ::write(wfd_,buf + s, size - s);
+      if (x < 0) break;
+      s += x;
+    }
+  }
+
+  void writeAll(const char* str) const noexcept {
+    if (!ok()) return;
+    auto len = ::strlen(str);
+    writeAll(str, len);
   }
 
 private:
