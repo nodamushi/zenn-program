@@ -5,13 +5,14 @@ function init-work() {
 
 # build手順
 function build() {
-  spr-config default feature/libcxx device/camera feature/usbcdcacm
+  spr-config default feature/libcxx device/camera feature/usbcdcacm feature/startup_script feature/smp
   spr-make -j
   mkdir -p /work/dist
   cp /spresense/sdk/nuttx.spk /work/dist/nuttx.spk
 }
 
 function rebuild() {
+  cp /work/rcS.tmplate /spresense/sdk/system/startup_script/
   spr-make -j
   mkdir -p /work/dist
   cp /spresense/sdk/nuttx.spk /work/dist/nuttx.spk
@@ -33,6 +34,7 @@ function write-app() {
   else
     bin=$1
   fi
+  # /spresense/sdk/tools/flash.sh -c $TARGET_USB -w /work/init.rc
   /spresense/sdk/tools/flash.sh -c $TARGET_USB -b 500000 $bin
 }
 

@@ -145,11 +145,13 @@ struct VideoBuffers {
     // Get buffer memory
     auto bufs = std::make_unique<VideoBuffer[]>(bufferSize);
     if (!bufs) {
+      printf("Fail to create Video Buffer Array\n");
       return; // TODO error
     }
     for (uint16_t i = 0; i < bufferSize; i++) {
       bufs[i] = VideoBuffer(i, eachBufferLength);
       if (!bufs[i].ok()) {
+        printf("Fail to create Video Buffer %d\n", i);
         return; // TODO error
       }
     }
@@ -162,6 +164,7 @@ struct VideoBuffers {
     req.count = bufferSize;
     req.mode = V4L2_BUF_MODE_RING;
     if (::ioctl(fd, VIDIOC_REQBUFS, (unsigned long)&req) < 0) {
+      printf("Fail to reqbufs\n");
       return; // TODO error
     }
 
@@ -174,6 +177,7 @@ struct VideoBuffers {
       buf.length = eachBufferLength;
 
       if (::ioctl(fd, VIDIOC_QBUF, (unsigned long)&buf)) {
+        printf("Fail to QBUF %d\n", i);
         return; // TODO error
       }
     }
@@ -200,6 +204,12 @@ private:
  * @brief JPEG カメラオブジェクト
  */
 struct Camera {
+  Camera(Camera&&) noexcept = default;
+  Camera& operator=(Camera&&) noexcept = default;
+
+  Camera() noexcept
+      : fd_(), bufs_(), is_movie_(), size_(), started_(false) {}
+
   /**
    * @param videoSize 画像サイズ
    * @param fps 動画の FPS.
@@ -216,12 +226,14 @@ struct Camera {
   Camera(Size videoSize, VideoFPS fps, uint8_t bufferSize) noexcept
       : fd_(), bufs_(), is_movie_(fps != StillImage), size_(videoSize),
         started_(false) {
-
     // see
     // https://developer.sony.com/spresense/development-guides/sdk_developer_guide_ja#_%E6%A6%82%E8%A6%81_4
+
     ::video_initialize(VIDEO_DEV_PATH);
+
     raii::FileDescripter fd(VIDEO_DEV_PATH, 0);
     if (!fd.ok()) {
+      printf("Fail to open Camera File Descripter\n");
       return;
     }
 
@@ -234,6 +246,7 @@ struct Camera {
     fmt.fmt.pix.field = V4L2_FIELD_ANY;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_JPEG;
     if (::ioctl((int)fd, VIDIOC_S_FMT, (unsigned long)&fmt) < 0) {
+      printf("Fail to set pixel data\n");
       return; // TODO error
     }
 
@@ -269,14 +282,15 @@ struct Camera {
       parm.parm.capture.timeperframe.numerator = num;
       parm.parm.capture.timeperframe.denominator = den;
       if (ioctl(fd, VIDIOC_S_PARM, &parm) < 0) {
+        printf("Fail to set FPS\n");
         return; // TODO error
       }
     }
-
     uint32_t length =
         (uint32_t)videoSize.width * videoSize.height * sizeof(uint16_t) / 7;
     VideoBuffers bufs((int)fd, is_movie_, bufferSize, length);
     if (!bufs.ok()) {
+      printf("Fail to create buffer\n");
       return; // TODO error
     }
 

@@ -27,8 +27,8 @@ extern "C" int main(int argc, FAR char *argv[]) {
 
   if (useExernalUSB) {
     printf("Use External USB Serial port.\n");
-    printf("-- Baudrate: 8000000\n");
-    u = usb::USBSerial(8000000);
+    printf("-- Baudrate: 30000000\n");
+    u = usb::USBSerial(30000000);
     if (!u.ok()) {
       printf("-- Fail to init USB\n");
       return 1;

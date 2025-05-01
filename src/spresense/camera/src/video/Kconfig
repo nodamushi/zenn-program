@@ -1,0 +1,25 @@
+
+config WORK_VIDEO
+	tristate "video app"
+	default y
+	---help---
+		Enable the video app
+
+if WORK_VIDEO
+
+config WORK_VIDEO_PROGNAME
+	string "Program name"
+	default "video"
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config WORK_VIDEO_PRIORITY
+	int "video task priority"
+	default 100
+
+config WORK_VIDEO_STACKSIZE
+	int "video stack size"
+	default 2048
+
+endif

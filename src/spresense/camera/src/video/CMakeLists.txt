@@ -1,0 +1,11 @@
+if(CONFIG_WORK_CAM)
+  nuttx_add_application(
+    NAME
+    video
+    STACKSIZE
+    ${CONFIG_WORK_VIDEO_STACKSIZE}
+    MODULE
+    ${CONFIG_WORK_VIDEO}
+    SRCS
+    video_main.cxx)
+endif()

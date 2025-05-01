@@ -1,0 +1,14 @@
+
+include $(APPDIR)/Make.defs
+include $(SDKDIR)/Make.defs
+
+PROGNAME = $(CONFIG_WORK_VIDEO_PROGNAME)
+PRIORITY = $(CONFIG_WORK_VIDEO_PRIORITY)
+STACKSIZE = $(CONFIG_WORK_VIDEO_STACKSIZE)
+MODULE = $(CONFIG_WORK_VIDEO)
+
+ASRCS =
+CSRCS =
+MAINSRC = video_main.cxx
+
+include $(APPDIR)/Application.mk
