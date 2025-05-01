@@ -1,0 +1,25 @@
+
+config WORK_THD
+	tristate "thd app"
+	default y
+	---help---
+		Enable the thd app
+
+if WORK_THD
+
+config WORK_THD_PROGNAME
+	string "Program name"
+	default "thd"
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config WORK_THD_PRIORITY
+	int "thd task priority"
+	default 100
+
+config WORK_THD_STACKSIZE
+	int "thd stack size"
+	default 2048
+
+endif

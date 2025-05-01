@@ -1,0 +1,14 @@
+
+include $(APPDIR)/Make.defs
+include $(SDKDIR)/Make.defs
+
+PROGNAME = $(CONFIG_WORK_THD_PROGNAME)
+PRIORITY = $(CONFIG_WORK_THD_PRIORITY)
+STACKSIZE = $(CONFIG_WORK_THD_STACKSIZE)
+MODULE = $(CONFIG_WORK_THD)
+
+ASRCS =
+CSRCS =
+MAINSRC = thd_main.c
+
+include $(APPDIR)/Application.mk
