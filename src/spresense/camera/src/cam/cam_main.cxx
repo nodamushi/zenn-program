@@ -37,6 +37,7 @@ extern "C" int main(int argc, FAR char *argv[]) {
   }
 
   // ----- カメラの初期化 -----------------------------------
+  cam::Camera::init();
   printf("Init camera\n");
   cam::Camera camera(cam::HD, cam::StillImage, 2);
   if (!camera.ok()) {

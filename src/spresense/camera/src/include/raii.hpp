@@ -14,8 +14,9 @@ struct FileDescripter {
   FileDescripter(const char *file, int flag) noexcept
       : fd(::open(file, flag)) {}
   ~FileDescripter() noexcept {
-    if (fd >= 0)
+    if (fd >= 0) {
       ::close(fd);
+    }
   }
 
   FileDescripter(FileDescripter &&x) noexcept : fd(std::exchange(x.fd, -1)) {}

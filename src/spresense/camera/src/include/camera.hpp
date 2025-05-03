@@ -204,11 +204,13 @@ private:
  * @brief JPEG カメラオブジェクト
  */
 struct Camera {
-  Camera(Camera&&) noexcept = default;
-  Camera& operator=(Camera&&) noexcept = default;
 
-  Camera() noexcept
-      : fd_(), bufs_(), is_movie_(), size_(), started_(false) {}
+  static void init() noexcept { ::video_initialize(VIDEO_DEV_PATH); }
+
+  Camera(Camera &&) noexcept = default;
+  Camera &operator=(Camera &&) noexcept = default;
+
+  Camera() noexcept : fd_(), bufs_(), is_movie_(), size_(), started_(false) {}
 
   /**
    * @param videoSize 画像サイズ
@@ -228,9 +230,6 @@ struct Camera {
         started_(false) {
     // see
     // https://developer.sony.com/spresense/development-guides/sdk_developer_guide_ja#_%E6%A6%82%E8%A6%81_4
-
-    ::video_initialize(VIDEO_DEV_PATH);
-
     raii::FileDescripter fd(VIDEO_DEV_PATH, 0);
     if (!fd.ok()) {
       printf("Fail to open Camera File Descripter\n");
@@ -349,15 +348,16 @@ struct Camera {
     if (!started_)
       return true;
 
+    bool ok = true;
     if (!is_movie_)
       if (::ioctl(fd_, VIDIOC_TAKEPICT_STOP, 0))
-        return false;
-
+        ok = false;
+printf("Stop capture\n");
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (::ioctl(fd_, VIDIOC_STREAMOFF, (unsigned long)&type))
-      return false;
+      ok = false;
     started_ = false;
-    return true;
+    return ok;
   }
 
   /**

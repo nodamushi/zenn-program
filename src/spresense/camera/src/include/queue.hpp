@@ -1,6 +1,5 @@
 #ifndef CAMERA_QUEUE_HPP__
 #define CAMERA_QUEUE_HPP__
-#include <atomic>
 #include <nuttx/semaphore.h>
 
 namespace queue {
@@ -56,17 +55,29 @@ struct Queue {
 
   void enqueue(const T &v) noexcept {
     nxsem_wait(&rest);
-    buffer[head] = v;
-    head = (head + 1) % N;
+    buffer[head++] = v;
+    if (head == N) head = 0;
+    nxsem_post(&count);
+  }
+  void enqueue(T &&v) noexcept {
+    nxsem_wait(&rest);
+    buffer[head++] = std::move(v);
+    if (head == N) head = 0;
     nxsem_post(&count);
   }
 
   T dequeue() noexcept {
     nxsem_wait(&count);
-    T v = buffer[tail];
-    tail = (tail + 1) % N;
+    T v = buffer[tail++];
+    if (tail == N) tail = 0;
     nxsem_post(&rest);
     return v;
+  }
+
+  bool empty() noexcept {
+    int value;
+    nxsem_get_value(&count, &value);
+    return value == 0;
   }
 
   /** enqueue 側のRAIIオブジェクトを作成。2度以上呼ばないでください */
