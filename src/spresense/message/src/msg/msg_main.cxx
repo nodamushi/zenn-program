@@ -182,6 +182,7 @@ void *receiverThread(void *a) {
 void *senderThread(void *a) {
   Arg &arg = *(Arg *)a;
 
+  printf("Start Send Thread.\n"); // recieveThread がこの間に確実にループに入ってるはず
   // -------------------------------------
   struct timeval start_a;
   {
@@ -196,6 +197,7 @@ void *senderThread(void *a) {
   gettimeofday(&end_a, NULL);
 
   // -------------------------------------
+  printf("Done.Start next.\n"); // recieveThread がこの間に確実にループに入ってるはず
   struct timeval start_n;
   {
     NxsemMsg::Sender send(arg.n);
@@ -221,7 +223,6 @@ void *senderThread(void *a) {
 // main関数
 extern "C" int main(int argc, FAR char *argv[]) {
   Arg arg(4, 100000);
-
   struct sched_param sparam = {};
   sparam.sched_priority = 110;
   pthread_attr_t attr;
