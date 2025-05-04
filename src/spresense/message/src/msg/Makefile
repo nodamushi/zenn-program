@@ -1,0 +1,14 @@
+
+include $(APPDIR)/Make.defs
+include $(SDKDIR)/Make.defs
+
+PROGNAME = $(CONFIG_WORK_MSG_PROGNAME)
+PRIORITY = $(CONFIG_WORK_MSG_PRIORITY)
+STACKSIZE = $(CONFIG_WORK_MSG_STACKSIZE)
+MODULE = $(CONFIG_WORK_MSG)
+
+ASRCS =
+CSRCS =
+MAINSRC = msg_main.cxx
+
+include $(APPDIR)/Application.mk

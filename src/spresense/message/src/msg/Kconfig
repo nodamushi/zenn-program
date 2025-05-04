@@ -1,0 +1,25 @@
+
+config WORK_MSG
+	tristate "msg app"
+	default y
+	---help---
+		Enable the msg app
+
+if WORK_MSG
+
+config WORK_MSG_PROGNAME
+	string "Program name"
+	default "msg"
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config WORK_MSG_PRIORITY
+	int "msg task priority"
+	default 100
+
+config WORK_MSG_STACKSIZE
+	int "msg stack size"
+	default 2048
+
+endif
